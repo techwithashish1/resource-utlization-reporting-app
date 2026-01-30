@@ -1,0 +1,483 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Resource Metrics & Analytics API
+  SAM Template for CloudWatch metrics retrieval for S3, DynamoDB, and Lambda
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: python3.11
+    MemorySize: 256
+    Architectures:
+      - x86_64
+    Environment:
+      Variables:
+        LOG_LEVEL: INFO
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Description: Environment name
+
+Resources:
+  # API Gateway with OpenAPI definition for proper IAM authorization
+  ResourceMetricsApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub resource-metrics-api-${Environment}
+      StageName: !Ref Environment
+      Description: API for retrieving resource utilization metrics
+      Auth:
+        UsagePlan:
+          CreateUsagePlan: PER_API
+          Description: !Sub "Usage plan for resource-metrics-api-${Environment}"
+          Quota:
+            Limit: 10000
+            Period: MONTH
+          Throttle:
+            RateLimit: 100
+            BurstLimit: 200
+          UsagePlanName: !Sub "resource-metrics-usage-plan-${Environment}"
+      DefinitionBody:
+        openapi: "3.0.1"
+        info:
+          title: !Sub "resource-metrics-api-${Environment}"
+          description: "Resource Metrics & Analytics API with IAM and API Key authorization"
+          version: "1.0.0"
+        x-amazon-apigateway-request-validators:
+          all:
+            validateRequestBody: true
+            validateRequestParameters: true
+        paths:
+          /api/metrics/s3:
+            get:
+              summary: "Get S3 metrics summary"
+              security:
+                - sigv4: []
+              x-amazon-apigateway-auth:
+                type: AWS_IAM
+              x-amazon-apigateway-integration:
+                type: aws_proxy
+                httpMethod: POST
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${S3MetricsFunction.Arn}/invocations"
+              responses:
+                "200":
+                  description: "Successful response"
+            options:
+              summary: "CORS support"
+              x-amazon-apigateway-integration:
+                type: mock
+                requestTemplates:
+                  application/json: '{"statusCode": 200}'
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+                      method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+              responses:
+                "200":
+                  description: "CORS response"
+                  headers:
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: string
+          /api/metrics/s3/{bucket_name}:
+            get:
+              summary: "Get S3 metrics for specific bucket"
+              parameters:
+                - name: bucket_name
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+              security:
+                - sigv4: []
+              x-amazon-apigateway-auth:
+                type: AWS_IAM
+              x-amazon-apigateway-integration:
+                type: aws_proxy
+                httpMethod: POST
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${S3MetricsFunction.Arn}/invocations"
+              responses:
+                "200":
+                  description: "Successful response"
+          /api/metrics/dynamodb:
+            get:
+              summary: "Get DynamoDB metrics summary"
+              security:
+                - sigv4: []
+              x-amazon-apigateway-auth:
+                type: AWS_IAM
+              x-amazon-apigateway-integration:
+                type: aws_proxy
+                httpMethod: POST
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DynamoDBMetricsFunction.Arn}/invocations"
+              responses:
+                "200":
+                  description: "Successful response"
+            options:
+              summary: "CORS support"
+              x-amazon-apigateway-integration:
+                type: mock
+                requestTemplates:
+                  application/json: '{"statusCode": 200}'
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+                      method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+              responses:
+                "200":
+                  description: "CORS response"
+                  headers:
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: string
+          /api/metrics/dynamodb/{table_name}:
+            get:
+              summary: "Get DynamoDB metrics for specific table"
+              parameters:
+                - name: table_name
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+              security:
+                - sigv4: []
+              x-amazon-apigateway-auth:
+                type: AWS_IAM
+              x-amazon-apigateway-integration:
+                type: aws_proxy
+                httpMethod: POST
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DynamoDBMetricsFunction.Arn}/invocations"
+              responses:
+                "200":
+                  description: "Successful response"
+          /api/metrics/lambda:
+            get:
+              summary: "Get Lambda metrics summary"
+              security:
+                - sigv4: []
+              x-amazon-apigateway-auth:
+                type: AWS_IAM
+              x-amazon-apigateway-integration:
+                type: aws_proxy
+                httpMethod: POST
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaMetricsFunction.Arn}/invocations"
+              responses:
+                "200":
+                  description: "Successful response"
+            options:
+              summary: "CORS support"
+              x-amazon-apigateway-integration:
+                type: mock
+                requestTemplates:
+                  application/json: '{"statusCode": 200}'
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+                      method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+              responses:
+                "200":
+                  description: "CORS response"
+                  headers:
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: string
+          /api/metrics/lambda/{function_name}:
+            get:
+              summary: "Get Lambda metrics for specific function"
+              parameters:
+                - name: function_name
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+              security:
+                - sigv4: []
+              x-amazon-apigateway-auth:
+                type: AWS_IAM
+              x-amazon-apigateway-integration:
+                type: aws_proxy
+                httpMethod: POST
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaMetricsFunction.Arn}/invocations"
+              responses:
+                "200":
+                  description: "Successful response"
+          /api/metrics/report:
+            get:
+              summary: "Get aggregated metrics report"
+              security:
+                - api_key: []
+              x-amazon-apigateway-api-key-source: HEADER
+              x-amazon-apigateway-integration:
+                type: aws_proxy
+                httpMethod: POST
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${MetricsReportFunction.Arn}/invocations"
+              responses:
+                "200":
+                  description: "Successful response"
+            post:
+              summary: "Generate custom metrics report"
+              security:
+                - api_key: []
+              x-amazon-apigateway-api-key-source: HEADER
+              x-amazon-apigateway-integration:
+                type: aws_proxy
+                httpMethod: POST
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${MetricsReportFunction.Arn}/invocations"
+              responses:
+                "200":
+                  description: "Successful response"
+            options:
+              summary: "CORS support"
+              x-amazon-apigateway-integration:
+                type: mock
+                requestTemplates:
+                  application/json: '{"statusCode": 200}'
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+                      method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+              responses:
+                "200":
+                  description: "CORS response"
+                  headers:
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: string
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: string
+        components:
+          securitySchemes:
+            sigv4:
+              type: apiKey
+              name: Authorization
+              in: header
+              x-amazon-apigateway-authtype: awsSigv4
+            api_key:
+              type: apiKey
+              name: x-api-key
+              in: header
+
+  # API Key for report endpoints (SAM automatically creates usage plan)
+  ResourceMetricsApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Name: !Sub "resource-metrics-api-key-${Environment}"
+      Description: "API Key for Resource Metrics Report endpoint"
+      Enabled: true
+      StageKeys:
+        - RestApiId: !Ref ResourceMetricsApi
+          StageName: !Ref Environment
+
+  # Associate API Key with SAM-created Usage Plan
+  ResourceMetricsUsagePlanKey:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !Ref ResourceMetricsApiKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref ResourceMetricsApiUsagePlan
+
+  # Lambda Function for S3 Metrics
+  S3MetricsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub s3-metrics-${Environment}
+      CodeUri: src/
+      Handler: handlers.s3_metrics.lambda_handler
+      Description: Retrieve S3 CloudWatch metrics
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - cloudwatch:GetMetricData
+                - cloudwatch:GetMetricStatistics
+                - cloudwatch:ListMetrics
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - s3:ListAllMyBuckets
+                - s3:GetBucketLocation
+              Resource: '*'
+
+  # Permission for API Gateway to invoke S3 Metrics Lambda
+  S3MetricsLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref S3MetricsFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ResourceMetricsApi}/*"
+
+  # Lambda Function for DynamoDB Metrics
+  DynamoDBMetricsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub dynamodb-metrics-${Environment}
+      CodeUri: src/
+      Handler: handlers.dynamodb_metrics.lambda_handler
+      Description: Retrieve DynamoDB CloudWatch metrics
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - cloudwatch:GetMetricData
+                - cloudwatch:GetMetricStatistics
+                - cloudwatch:ListMetrics
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - dynamodb:ListTables
+                - dynamodb:DescribeTable
+              Resource: '*'
+
+  # Permission for API Gateway to invoke DynamoDB Metrics Lambda
+  DynamoDBMetricsLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref DynamoDBMetricsFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ResourceMetricsApi}/*"
+
+  # Lambda Function for Lambda Metrics
+  LambdaMetricsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub lambda-metrics-${Environment}
+      CodeUri: src/
+      Handler: handlers.lambda_metrics.lambda_handler
+      Description: Retrieve Lambda CloudWatch metrics
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - cloudwatch:GetMetricData
+                - cloudwatch:GetMetricStatistics
+                - cloudwatch:ListMetrics
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - lambda:ListFunctions
+                - lambda:GetFunction
+              Resource: '*'
+
+  # Permission for API Gateway to invoke Lambda Metrics Lambda
+  LambdaMetricsLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaMetricsFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ResourceMetricsApi}/*"
+
+  # Lambda Function for Aggregated Metrics Report
+  MetricsReportFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub metrics-report-${Environment}
+      CodeUri: src/
+      Handler: handlers.metrics_report.lambda_handler
+      Description: Generate aggregated metrics report
+      Timeout: 60
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - cloudwatch:GetMetricData
+                - cloudwatch:GetMetricStatistics
+                - cloudwatch:ListMetrics
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - s3:ListAllMyBuckets
+                - dynamodb:ListTables
+                - lambda:ListFunctions
+              Resource: '*'
+
+  # Permission for API Gateway to invoke Metrics Report Lambda
+  MetricsReportLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref MetricsReportFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ResourceMetricsApi}/*"
+
+Outputs:
+  ResourceMetricsApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${ResourceMetricsApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
+  
+  ResourceMetricsApiId:
+    Description: API Gateway ID
+    Value: !Ref ResourceMetricsApi
+    Export:
+      Name: !Sub ${AWS::StackName}-ApiId
+
+  ResourceMetricsApiKeyId:
+    Description: API Key ID for report endpoints
+    Value: !Ref ResourceMetricsApiKey
+
+  ResourceMetricsApiKeyValue:
+    Description: API Key Value (retrieve from console or AWS CLI)
+    Value: !Sub "Use AWS CLI: aws apigateway get-api-key --api-key ${ResourceMetricsApiKey} --include-value"
+
+  S3MetricsFunctionArn:
+    Description: S3 Metrics Lambda Function ARN
+    Value: !GetAtt S3MetricsFunction.Arn
+
+  DynamoDBMetricsFunctionArn:
+    Description: DynamoDB Metrics Lambda Function ARN
+    Value: !GetAtt DynamoDBMetricsFunction.Arn
+
+  LambdaMetricsFunctionArn:
+    Description: Lambda Metrics Lambda Function ARN
+    Value: !GetAtt LambdaMetricsFunction.Arn
+
+  MetricsReportFunctionArn:
+    Description: Metrics Report Lambda Function ARN
+    Value: !GetAtt MetricsReportFunction.Arn

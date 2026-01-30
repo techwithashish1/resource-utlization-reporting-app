@@ -1,0 +1,93 @@
+# Ignore Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+.DS_Store
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Test coverage
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.pytest_cache/
+
+# Logs
+*.log
+logs/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# AWS
+.aws-sam/
+samconfig.toml
+
+# AgentCore deployment files
+.bedrock_agentcore/
+.bedrock_agentcore.yaml
+.agentcoreconfig
+src/.bedrock_agentcore/
+src/.bedrock_agentcore.yaml
+
+# Keep example files
+!.bedrock_agentcore.yaml.example
+!.agentcoreconfig.example
+!src/.bedrock_agentcore.yaml.example
+!src/.agentcoreconfig.example
+
+# Lock files
+uv.lock
+poetry.lock
+Pipfile.lock
+
+# VSCode specific files (optional - team preference)
+# .vscode/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+
+# Temporary files
+*.tmp
+temp/
+tmp/
+
+# Response/output files from testing
+src/response.json
+response.json
+*.output.json
+
+# Local test data
+*.local.json
+test_output/
+
+# Gateway configuration (contains credentials)
+gateway_config.json
+**/gateway_config.json
