@@ -7,7 +7,7 @@ Description: >
 Globals:
   Function:
     Timeout: 30
-    Runtime: python3.11
+    Runtime: python3.13
     MemorySize: 256
     Architectures:
       - x86_64
@@ -301,13 +301,11 @@ Resources:
   # API Key for report endpoints (SAM automatically creates usage plan)
   ResourceMetricsApiKey:
     Type: AWS::ApiGateway::ApiKey
+    DependsOn: ResourceMetricsApi
     Properties:
       Name: !Sub "resource-metrics-api-key-${Environment}"
       Description: "API Key for Resource Metrics Report endpoint"
       Enabled: true
-      StageKeys:
-        - RestApiId: !Ref ResourceMetricsApi
-          StageName: !Ref Environment
 
   # Associate API Key with SAM-created Usage Plan
   ResourceMetricsUsagePlanKey:
